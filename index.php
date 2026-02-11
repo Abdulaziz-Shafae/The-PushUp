@@ -92,11 +92,21 @@
 
 <script>
   // device id (no account)
+  function generateDeviceId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID().replace(/-/g, "");
+    }
+
+    // Fallback for older browsers without crypto.randomUUID.
+    const rand = Math.random().toString(36).slice(2);
+    return `${Date.now().toString(36)}${rand}${rand}`.slice(0, 32);
+  }
+
   function getDeviceId() {
     const key = "pushup_device_id_v3";
     let id = localStorage.getItem(key);
     if (!id) {
-      id = crypto.randomUUID().replaceAll("-", "");
+      id = generateDeviceId();
       localStorage.setItem(key, id);
     }
     return id;
