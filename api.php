@@ -2,6 +2,12 @@
 require_once __DIR__ . '/config.php';
 header('Content-Type: application/json');
 
+set_exception_handler(function (Throwable $e): void {
+  http_response_code(500);
+  echo json_encode(['error' => 'Server error']);
+  exit;
+});
+
 function bad_request(string $msg) {
   http_response_code(400);
   echo json_encode(['error' => $msg]);
@@ -12,6 +18,10 @@ function get_json_body(): array {
   if (!$raw) return [];
   $data = json_decode($raw, true);
   return is_array($data) ? $data : [];
+}
+function str_len(string $s): int {
+  if (function_exists('mb_strlen')) return mb_strlen($s);
+  return strlen($s);
 }
 function is_valid_device_id(string $id): bool {
   return (bool)preg_match('/^[a-zA-Z0-9\-_]{10,64}$/', $id);
@@ -130,7 +140,7 @@ if ($action === 'profiles_create') {
   $name = trim((string)($body['name'] ?? ''));
 
   if (!is_valid_device_id($device_id)) bad_request('Invalid device_id');
-  if ($name === '' || mb_strlen($name) > 40) bad_request('Invalid name');
+  if ($name === '' || str_len($name) > 40) bad_request('Invalid name');
 
   $profile_id = substr(bin2hex(random_bytes(16)), 0, 12);
 
@@ -151,7 +161,7 @@ if ($action === 'profiles_rename') {
 
   if (!is_valid_device_id($device_id)) bad_request('Invalid device_id');
   if (!is_valid_profile_id($profile_id)) bad_request('Invalid profile_id');
-  if ($name === '' || mb_strlen($name) > 40) bad_request('Invalid name');
+  if ($name === '' || str_len($name) > 40) bad_request('Invalid name');
 
   $stmt = $db->prepare("UPDATE profiles SET name=? WHERE device_id=? AND profile_id=?");
   $stmt->bind_param("sss", $name, $device_id, $profile_id);
