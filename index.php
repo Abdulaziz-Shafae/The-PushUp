@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pushup Tracker</title>
   <style>
+    * { box-sizing: border-box; }
     :root { --bg:#0b0c10; --card:#12141a; --text:#e8eaed; --muted:#9aa0a6; --line:#222631; --ok:#1db954; }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); }
-    .wrap { max-width: 560px; margin: 0 auto; padding: 16px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius: 16px; padding: 14px; }
-    .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .wrap { width:min(560px, 100%); margin: 0 auto; padding: 16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius: 16px; padding: 14px; overflow: hidden; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap: wrap; }
     .h1 { font-size: 20px; font-weight: 800; }
     .muted { color: var(--muted); font-size: 13px; }
     .stats { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top: 10px; }
@@ -32,9 +33,18 @@
     .navbtn { padding:8px 12px; border-radius: 12px; border:1px solid var(--line); background:#0f1117; color:var(--text); font-weight:900; }
     .danger { margin-top: 12px; width:100%; padding: 10px 12px; border-radius: 14px; border:1px solid #442; background:#1a0f11; color:#ffb4b4; font-weight: 900; }
 
-    .actions { display:flex; gap:8px; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
     .small { padding:8px 10px; border-radius: 14px; border:1px solid var(--line); background:#0f1117; color:var(--text); font-weight:900; }
     select { border-radius: 14px; border:1px solid var(--line); background:#0f1117; color:var(--text); padding:8px 10px; font-weight:900; max-width: 220px; }
+
+    @media (max-width: 480px) {
+      .grid { gap: 6px; }
+      .cell { border-radius: 12px; padding: 4px; }
+      .d { font-size: 12px; }
+      .t { font-size: 11px; }
+      .actions { width: 100%; justify-content: flex-start; }
+      .small { flex: 1 1 calc(33.33% - 6px); min-width: 86px; }
+    }
   </style>
 </head>
 <body>
@@ -292,9 +302,9 @@
 
     const [y,m] = ym.split("-").map(Number);
     const first = new Date(y, m-1, 1);
-    const startDow = (first.getDay() + 6) % 7;
+    const startDow = first.getDay();
 
-    const names = ["M","T","W","T","F","S","S"];
+    const names = ["S","M","T","W","T","F","S"];
     for (const n of names) {
       const h = document.createElement("div");
       h.className = "muted";
