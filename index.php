@@ -105,6 +105,11 @@
   function getDeviceId() {
     const key = "pushup_device_id_v3";
     let id = localStorage.getItem(key);
+    const valid = /^[a-zA-Z0-9\-_]{10,64}$/;
+    if (id && !valid.test(id)) {
+      localStorage.removeItem(key);
+      id = "";
+    }
     if (!id) {
       id = generateDeviceId();
       localStorage.setItem(key, id);
@@ -113,10 +118,49 @@
   }
   const deviceId = getDeviceId();
 
+  async function parseApiResponse(res) {
+    const text = await res.text();
+    let data = null;
+
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        const snippet = text.replace(/\s+/g, " ").trim().slice(0, 180);
+        throw new Error(snippet || "Server returned an invalid response");
+      }
+    }
+
+    if (!res.ok) {
+      throw new Error((data && data.error) || `Request failed (${res.status})`);
+    }
+
+    if (!data) {
+      throw new Error("Server returned an empty response");
+    }
+
+    return data;
+  }
+
   // selected profile
   const PROFILE_KEY = "pushup_selected_profile_v3";
-  function getSelectedProfile() { return localStorage.getItem(PROFILE_KEY) || ""; }
-  function setSelectedProfile(id) { localStorage.setItem(PROFILE_KEY, id); }
+  const PROFILE_ID_PATTERN = /^[a-zA-Z0-9\-_]{6,32}$/;
+  function getSelectedProfile() {
+    const id = localStorage.getItem(PROFILE_KEY) || "";
+    if (!id) return "";
+    if (!PROFILE_ID_PATTERN.test(id)) {
+      localStorage.removeItem(PROFILE_KEY);
+      return "";
+    }
+    return id;
+  }
+  function setSelectedProfile(id) {
+    if (!id || !PROFILE_ID_PATTERN.test(id)) {
+      localStorage.removeItem(PROFILE_KEY);
+      return;
+    }
+    localStorage.setItem(PROFILE_KEY, id);
+  }
 
   // double-tap helper
   function attachDoubleTap(el, onDouble) {
@@ -149,8 +193,7 @@
 
   async function apiProfilesList() {
     const res = await fetch(`api.php?action=profiles_list&device_id=${encodeURIComponent(deviceId)}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to load profiles");
+    const data = await parseApiResponse(res);
     return data.profiles || [];
   }
   async function apiProfilesCreate(name) {
@@ -159,8 +202,7 @@
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({device_id: deviceId, name})
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Create failed");
+    const data = await parseApiResponse(res);
     return data.profile_id;
   }
   async function apiProfilesRename(profile_id, name) {
@@ -169,8 +211,7 @@
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({device_id: deviceId, profile_id, name})
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Rename failed");
+    await parseApiResponse(res);
   }
   async function apiProfilesDelete(profile_id) {
     const res = await fetch(`api.php?action=profiles_delete`, {
@@ -178,14 +219,12 @@
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({device_id: deviceId, profile_id})
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Delete failed");
+    await parseApiResponse(res);
   }
 
   async function apiState(profile_id, ym) {
     const res = await fetch(`api.php?action=state&device_id=${encodeURIComponent(deviceId)}&profile_id=${encodeURIComponent(profile_id)}&month=${encodeURIComponent(ym)}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to load");
+    const data = await parseApiResponse(res);
     return data;
   }
   async function apiToggle(profile_id, dateStr) {
@@ -194,8 +233,7 @@
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({device_id: deviceId, profile_id, date: dateStr})
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Toggle failed");
+    await parseApiResponse(res);
   }
 
   function fmtDate(dateStr) {
