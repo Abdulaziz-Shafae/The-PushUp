@@ -86,38 +86,11 @@
         <div class="grid" id="calGrid"></div>
       </div>
 
-      <button class="danger" id="resetBtn">Reset tracker on this device (new device id)</button>
+      <button class="danger" id="resetBtn">Clear selected profile on this browser</button>
     </div>
   </div>
 
 <script>
-  // device id (no account)
-  function generateDeviceId() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-      return window.crypto.randomUUID().replace(/-/g, "");
-    }
-
-    // Fallback for older browsers without crypto.randomUUID.
-    const rand = Math.random().toString(36).slice(2);
-    return `${Date.now().toString(36)}${rand}${rand}`.slice(0, 32);
-  }
-
-  function getDeviceId() {
-    const key = "pushup_device_id_v3";
-    let id = localStorage.getItem(key);
-    const valid = /^[a-zA-Z0-9\-_]{10,64}$/;
-    if (id && !valid.test(id)) {
-      localStorage.removeItem(key);
-      id = "";
-    }
-    if (!id) {
-      id = generateDeviceId();
-      localStorage.setItem(key, id);
-    }
-    return id;
-  }
-  const deviceId = getDeviceId();
-
   async function parseApiResponse(res) {
     const text = await res.text();
     let data = null;
@@ -142,9 +115,9 @@
     return data;
   }
 
-  // selected profile
-  const PROFILE_KEY = "pushup_selected_profile_v3";
+  const PROFILE_KEY = "pushup_selected_profile_v5";
   const PROFILE_ID_PATTERN = /^[a-zA-Z0-9\-_]{6,32}$/;
+
   function getSelectedProfile() {
     const id = localStorage.getItem(PROFILE_KEY) || "";
     if (!id) return "";
@@ -154,6 +127,7 @@
     }
     return id;
   }
+
   function setSelectedProfile(id) {
     if (!id || !PROFILE_ID_PATTERN.test(id)) {
       localStorage.removeItem(PROFILE_KEY);
@@ -162,7 +136,6 @@
     localStorage.setItem(PROFILE_KEY, id);
   }
 
-  // double-tap helper
   function attachDoubleTap(el, onDouble) {
     let last = 0;
     const threshold = 320;
@@ -176,7 +149,6 @@
     el.addEventListener("dblclick", (e) => onDouble(e));
   }
 
-  // month state
   let current = new Date();
   current.setDate(1);
 
@@ -185,6 +157,7 @@
     const m = String(d.getMonth()+1).padStart(2,'0');
     return `${y}-${m}`;
   }
+
   function monthTitle(ym) {
     const [y,m] = ym.split("-");
     const date = new Date(Number(y), Number(m)-1, 1);
@@ -192,46 +165,49 @@
   }
 
   async function apiProfilesList() {
-    const res = await fetch(`api.php?action=profiles_list&device_id=${encodeURIComponent(deviceId)}`);
+    const res = await fetch(`api.php?action=profiles_list`);
     const data = await parseApiResponse(res);
     return data.profiles || [];
   }
+
   async function apiProfilesCreate(name) {
     const res = await fetch(`api.php?action=profiles_create`, {
       method:"POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({device_id: deviceId, name})
+      body: JSON.stringify({name})
     });
     const data = await parseApiResponse(res);
     return data.profile_id;
   }
+
   async function apiProfilesRename(profile_id, name) {
     const res = await fetch(`api.php?action=profiles_rename`, {
       method:"POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({device_id: deviceId, profile_id, name})
+      body: JSON.stringify({profile_id, name})
     });
     await parseApiResponse(res);
   }
+
   async function apiProfilesDelete(profile_id) {
     const res = await fetch(`api.php?action=profiles_delete`, {
       method:"POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({device_id: deviceId, profile_id})
+      body: JSON.stringify({profile_id})
     });
     await parseApiResponse(res);
   }
 
   async function apiState(profile_id, ym) {
-    const res = await fetch(`api.php?action=state&device_id=${encodeURIComponent(deviceId)}&profile_id=${encodeURIComponent(profile_id)}&month=${encodeURIComponent(ym)}`);
-    const data = await parseApiResponse(res);
-    return data;
+    const res = await fetch(`api.php?action=state&profile_id=${encodeURIComponent(profile_id)}&month=${encodeURIComponent(ym)}`);
+    return await parseApiResponse(res);
   }
+
   async function apiToggle(profile_id, dateStr) {
     const res = await fetch(`api.php?action=toggle`, {
       method:"POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({device_id: deviceId, profile_id, date: dateStr})
+      body: JSON.stringify({profile_id, date: dateStr})
     });
     await parseApiResponse(res);
   }
@@ -240,10 +216,10 @@
     const d = new Date(dateStr + "T00:00:00");
     return d.toLocaleDateString(undefined, {weekday:"short", month:"2-digit", day:"2-digit"});
   }
+
   function dayNumber(dateStr) { return Number(dateStr.slice(-2)); }
 
   function renderHeader(profileName, stats) {
-    // Next target = completedDays + 1
     document.getElementById("subtitle").textContent =
       `${profileName} • Next target: ${stats.nextTarget} pushup${stats.nextTarget===1?'':'s'}`;
 
@@ -278,7 +254,6 @@
       row.className = "row";
       row.appendChild(left);
       row.appendChild(right);
-
       div.appendChild(row);
 
       attachDoubleTap(div, async () => {
@@ -296,7 +271,7 @@
 
     const [y,m] = ym.split("-").map(Number);
     const first = new Date(y, m-1, 1);
-    const startDow = (first.getDay() + 6) % 7; // Monday=0
+    const startDow = (first.getDay() + 6) % 7;
 
     const names = ["M","T","W","T","F","S","S"];
     for (const n of names) {
@@ -345,8 +320,8 @@
     }
   }
 
-  // profiles UI
   let profiles = [];
+
   function fillProfileSelect(selectedId) {
     const sel = document.getElementById("profileSelect");
     sel.innerHTML = "";
@@ -365,9 +340,9 @@
     if (profiles.length === 0) {
       const name = prompt("Create first profile name:");
       if (!name) throw new Error("Profile name required");
-      const newId = await apiProfilesCreate(name.trim());
+      const createdId = await apiProfilesCreate(name.trim());
       profiles = await apiProfilesList();
-      setSelectedProfile(newId);
+      setSelectedProfile(createdId);
     }
 
     const saved = getSelectedProfile();
@@ -392,7 +367,6 @@
     renderCalendar(profile_id, ym, data.days);
   }
 
-  // handlers
   document.getElementById("tabList").addEventListener("click", () => setActiveTab("list"));
   document.getElementById("tabCal").addEventListener("click", () => setActiveTab("cal"));
 
@@ -400,6 +374,7 @@
     current = new Date(current.getFullYear(), current.getMonth()-1, 1);
     await refresh();
   });
+
   document.getElementById("nextMonth").addEventListener("click", async () => {
     current = new Date(current.getFullYear(), current.getMonth()+1, 1);
     await refresh();
@@ -414,10 +389,10 @@
     try {
       const name = prompt("Profile name:");
       if (!name) return;
-      const newId = await apiProfilesCreate(name.trim());
+      const createdId = await apiProfilesCreate(name.trim());
       profiles = await apiProfilesList();
-      setSelectedProfile(newId);
-      fillProfileSelect(newId);
+      setSelectedProfile(createdId);
+      fillProfileSelect(createdId);
       await refresh();
     } catch (e) { alert(e.message); }
   });
@@ -455,9 +430,8 @@
   });
 
   document.getElementById("resetBtn").addEventListener("click", () => {
-    const ok = confirm("Reset tracker on this device? (Creates a new device id)");
+    const ok = confirm("Clear selected profile on this browser?");
     if (!ok) return;
-    localStorage.removeItem("pushup_device_id_v3");
     localStorage.removeItem(PROFILE_KEY);
     location.reload();
   });

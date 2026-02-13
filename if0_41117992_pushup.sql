@@ -29,7 +29,6 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `profiles` (
-  `device_id` varchar(64) NOT NULL,
   `profile_id` varchar(32) NOT NULL,
   `name` varchar(40) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -42,7 +41,6 @@ CREATE TABLE `profiles` (
 --
 
 CREATE TABLE `pushup_days` (
-  `device_id` varchar(64) NOT NULL,
   `profile_id` varchar(32) NOT NULL,
   `day_date` date NOT NULL,
   `completed` tinyint(1) NOT NULL DEFAULT 0,
@@ -57,13 +55,13 @@ CREATE TABLE `pushup_days` (
 -- Indexes for table `profiles`
 --
 ALTER TABLE `profiles`
-  ADD PRIMARY KEY (`device_id`,`profile_id`);
+  ADD PRIMARY KEY (`profile_id`);
 
 --
 -- Indexes for table `pushup_days`
 --
 ALTER TABLE `pushup_days`
-  ADD PRIMARY KEY (`device_id`,`profile_id`,`day_date`);
+  ADD PRIMARY KEY (`profile_id`,`day_date`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
