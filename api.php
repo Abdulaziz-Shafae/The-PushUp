@@ -106,8 +106,9 @@ function fetch_completed_set(mysqli $db, string $device_id, string $profile_id):
 }
 
 function compute_streak(array $completedSet): int {
-  $today = date('Y-m-d');
-  $ts = date_to_ts($today);
+  // Streak is calculated up to yesterday so missing today does not reset it.
+  $yesterdayTs = strtotime('-1 day', date_to_ts(date('Y-m-d')));
+  $ts = $yesterdayTs;
   $streak = 0;
   for ($i = 0; $i < 3650; $i++) { // up to ~10 years back, cheap loop
     $d = ts_to_date($ts);
