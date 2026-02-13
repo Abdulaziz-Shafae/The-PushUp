@@ -109,8 +109,9 @@ function fetch_completed_set(mysqli $db, string $profile_id): array {
 }
 
 function compute_streak(array $completedSet): int {
-  $yesterdayTs = strtotime('-1 day', date_to_ts(date('Y-m-d')));
-  $ts = $yesterdayTs;
+  $todayTs = date_to_ts(date('Y-m-d'));
+  $today = ts_to_date($todayTs);
+  $ts = !empty($completedSet[$today]) ? $todayTs : strtotime('-1 day', $todayTs);
   $streak = 0;
   for ($i = 0; $i < 3650; $i++) {
     $d = ts_to_date($ts);

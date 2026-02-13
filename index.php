@@ -20,11 +20,11 @@
     .tab.active { border-color: #3a3f52; background:#151927; }
     .hint { margin-top: 10px; font-size: 12px; color: var(--muted); }
     .list { margin-top: 10px; }
-    .item { padding: 12px; border:1px solid var(--line); border-radius: 14px; background:#0f1117; margin-bottom: 10px; }
+    .item { padding: 12px; border:1px solid var(--line); border-radius: 14px; background:#0f1117; margin-bottom: 10px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; border:1px solid var(--line); color: var(--muted); }
     .badge.ok { color: #0b0c10; background: var(--ok); border-color: var(--ok); font-weight: 900; }
     .grid { display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 10px; }
-    .cell { aspect-ratio: 1/1; border-radius: 14px; border:1px solid var(--line); background:#0f1117; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; padding: 6px; user-select:none; }
+    .cell { aspect-ratio: 1/1; border-radius: 14px; border:1px solid var(--line); background:#0f1117; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; padding: 6px; user-select:none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .cell.ok { border-color: var(--ok); }
     .d { font-weight: 900; font-size: 13px; }
     .t { font-size: 12px; color: var(--muted); }
@@ -137,13 +137,34 @@
   }
 
   function attachDoubleTap(el, onDouble) {
-    let last = 0;
-    const threshold = 320;
+    let lastTapAt = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+    const thresholdMs = 450;
+    const moveThresholdPx = 24;
+
+    const tryDoubleTap = (x, y, e) => {
+      const now = Date.now();
+      const dt = now - lastTapAt;
+      const dx = Math.abs(x - lastTapX);
+      const dy = Math.abs(y - lastTapY);
+      const isDouble = dt > 0 && dt <= thresholdMs && dx <= moveThresholdPx && dy <= moveThresholdPx;
+
+      if (isDouble) {
+        lastTapAt = 0;
+        onDouble(e);
+        return;
+      }
+
+      lastTapAt = now;
+      lastTapX = x;
+      lastTapY = y;
+    };
 
     el.addEventListener("touchend", (e) => {
-      const now = Date.now();
-      if (now - last < threshold) { last = 0; onDouble(e); }
-      else { last = now; }
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      const t = e.changedTouches[0];
+      tryDoubleTap(t.clientX, t.clientY, e);
     }, {passive:true});
 
     el.addEventListener("dblclick", (e) => onDouble(e));
