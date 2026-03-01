@@ -68,6 +68,18 @@ function profile_exists(mysqli $db, string $profile_id): bool {
   return $ok;
 }
 
+function get_profile_start_date(mysqli $db, string $profile_id): string {
+  $stmt = $db->prepare("SELECT DATE(created_at) AS d FROM profiles WHERE profile_id=? LIMIT 1");
+  $stmt->bind_param("s", $profile_id);
+  $stmt->execute();
+  $res = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+
+  $d = (string)($res['d'] ?? '');
+  if (!is_valid_date($d)) return date('Y-m-d');
+  return $d;
+}
+
 function fetch_month_status(mysqli $db, string $profile_id, string $monthStart, string $monthEnd): array {
   $stmt = $db->prepare("SELECT day_date, completed FROM pushup_days WHERE profile_id=? AND day_date>=? AND day_date<?");
   $stmt->bind_param("sss", $profile_id, $monthStart, $monthEnd);
@@ -106,6 +118,61 @@ function fetch_completed_set(mysqli $db, string $profile_id): array {
   while ($row = $res->fetch_assoc()) $set[$row['day_date']] = true;
   $stmt->close();
   return $set;
+}
+
+function fetch_completed_map_between(mysqli $db, string $profile_id, string $startDate, string $endDate): array {
+  $stmt = $db->prepare("SELECT day_date, completed FROM pushup_days WHERE profile_id=? AND day_date>=? AND day_date<=?");
+  $stmt->bind_param("sss", $profile_id, $startDate, $endDate);
+  $stmt->execute();
+  $res = $stmt->get_result();
+  $map = [];
+  while ($row = $res->fetch_assoc()) {
+    $map[$row['day_date']] = ((int)$row['completed'] === 1);
+  }
+  $stmt->close();
+  return $map;
+}
+
+function build_plan_state(array $completedMap, string $startDate, string $endDate): array {
+  $startTs = date_to_ts($startDate);
+  $endTs = date_to_ts($endDate);
+
+  $target = 1;
+  $missStreak = 0;
+  $days = [];
+  $totalCompletedDays = 0;
+  $totalPushupsCompleted = 0;
+
+  for ($ts = $startTs; $ts <= $endTs; $ts = strtotime('+1 day', $ts)) {
+    $date = ts_to_date($ts);
+    $completed = !empty($completedMap[$date]);
+
+    $days[$date] = [
+      'target' => $target,
+      'completed' => $completed,
+    ];
+
+    if ($completed) {
+      $totalCompletedDays++;
+      $totalPushupsCompleted += $target;
+      $target++;
+      $missStreak = 0;
+      continue;
+    }
+
+    $missStreak++;
+    if ($missStreak >= 2) {
+      $target = max(1, $target - 1);
+      $missStreak = 0;
+    }
+  }
+
+  return [
+    'days' => $days,
+    'nextTarget' => $target,
+    'totalCompletedDays' => $totalCompletedDays,
+    'totalPushupsCompleted' => $totalPushupsCompleted,
+  ];
 }
 
 function compute_streak(array $completedSet): int {
@@ -200,37 +267,33 @@ if ($action === 'state') {
 
   [$monthStart, $monthEnd] = get_month_range($month);
 
-  $monthMap = fetch_month_status($db, $profile_id, $monthStart, $monthEnd);
-  $completedBeforeMonth = count_completed_before($db, $profile_id, $monthStart);
+  $monthEndInclusive = ts_to_date(strtotime('-1 day', date_to_ts($monthEnd)));
+  $profileStart = get_profile_start_date($db, $profile_id);
+  $today = date('Y-m-d');
+  $simEnd = max($today, $monthEndInclusive);
+
+  $completedMap = fetch_completed_map_between($db, $profile_id, $profileStart, $simEnd);
+  $plan = build_plan_state($completedMap, $profileStart, $simEnd);
 
   $days = [];
   $startTs = date_to_ts($monthStart);
   $endTs = date_to_ts($monthEnd);
-  $counter = $completedBeforeMonth;
-
   for ($ts = $startTs; $ts < $endTs; $ts = strtotime('+1 day', $ts)) {
     $date = ts_to_date($ts);
-    $target = 1 + $counter;
-    $completed = $monthMap[$date] ?? false;
-
+    $info = $plan['days'][$date] ?? ['target' => 1, 'completed' => false];
     $days[] = [
       'date' => $date,
-      'target' => $target,
-      'completed' => $completed,
+      'target' => $info['target'],
+      'completed' => $info['completed'],
     ];
-
-    if ($completed) $counter++;
   }
 
-  $completedTotal = count_completed_total($db, $profile_id);
   $completedSet = fetch_completed_set($db, $profile_id);
-
-  $today = date('Y-m-d');
   $stats = [
-    'totalCompletedDays' => $completedTotal,
-    'totalPushupsCompleted' => (int)(($completedTotal * ($completedTotal + 1)) / 2),
+    'totalCompletedDays' => $plan['totalCompletedDays'],
+    'totalPushupsCompleted' => $plan['totalPushupsCompleted'],
     'currentStreak' => compute_streak($completedSet),
-    'nextTarget' => $completedTotal + 1,
+    'nextTarget' => $plan['nextTarget'],
     'todayCompleted' => !empty($completedSet[$today]),
   ];
 
