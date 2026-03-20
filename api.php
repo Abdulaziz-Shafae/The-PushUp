@@ -42,7 +42,7 @@ function ts_to_date(int $ts): string {
   return date('Y-m-d', $ts);
 }
 
-function min_date(string ...$dates): string {
+function min_date(string ...$dates): ?string {
   $min = null;
   foreach ($dates as $d) {
     if (!is_valid_date($d)) continue;
@@ -50,7 +50,7 @@ function min_date(string ...$dates): string {
       $min = $d;
     }
   }
-  return $min ?? date('Y-m-d');
+  return $min;
 }
 
 function get_month_range(string $month): array {
@@ -292,7 +292,7 @@ if ($action === 'state') {
   $monthEndInclusive = ts_to_date(strtotime('-1 day', date_to_ts($monthEnd)));
   $profileStart = get_profile_start_date($db, $profile_id);
   $firstLogged = get_first_logged_date($db, $profile_id);
-  $simStart = min_date($profileStart, $firstLogged ?? '');
+  $simStart = min_date($profileStart, $firstLogged ?? '') ?? $profileStart;
   $today = date('Y-m-d');
   $simEnd = max($today, $monthEndInclusive);
 
