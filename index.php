@@ -31,6 +31,7 @@
     .cell { aspect-ratio: 1/1; border-radius: 14px; border:1px solid var(--line); background:#0f1117; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; padding: 6px; user-select:none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .cell.ok { border-color: var(--ok); }
     .cell.today-target { border-color: #f3d36a; box-shadow: 0 0 0 1px rgba(243,211,106,0.24) inset; }
+    .cell.today-done { border-color: var(--ok); box-shadow: 0 0 0 1px rgba(29,185,84,0.24) inset; }
     .d { font-weight: 900; font-size: 13px; }
     .t { font-size: 15px; color: #d5d9df; font-weight: 900; line-height: 1; }
     .t strong { color:#f3d36a; }
@@ -400,9 +401,12 @@
 
     for (const d of days) {
       const cell = document.createElement("div");
-      cell.className = "cell" + (d.completed ? " ok" : "") + (d.date === today ? " today-target" : "");
+      const isToday = d.date === today;
+      cell.className = "cell"
+        + (d.completed ? " ok" : "")
+        + (isToday ? (d.completed ? " today-done" : " today-target") : "");
       cell.innerHTML = `<div class="d">${dayNumber(d.date)}</div>
-                        <div class="t">${d.date === today ? `<strong>${d.target}</strong>` : d.target}</div>`;
+                        <div class="t">${(isToday && !d.completed) ? `<strong>${d.target}</strong>` : d.target}</div>`;
 
       attachDoubleTap(cell, async () => {
         try { await apiToggle(profile_id, d.date); await refresh(); }

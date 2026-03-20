@@ -290,6 +290,7 @@ if ($action === 'state') {
 
   $completedMap = fetch_completed_map_between($db, $profile_id, $profileStart, $simEnd);
   $plan = build_plan_state($completedMap, $profileStart, $simEnd);
+  $planToday = build_plan_state($completedMap, $profileStart, $today);
 
   $days = [];
   $startTs = date_to_ts($monthStart);
@@ -309,7 +310,9 @@ if ($action === 'state') {
     'totalCompletedDays' => $plan['totalCompletedDays'],
     'totalPushupsCompleted' => $plan['totalPushupsCompleted'],
     'currentStreak' => compute_streak($completedSet),
-    'nextTarget' => $plan['nextTarget'],
+    'nextTarget' => !empty($completedSet[$today])
+      ? $planToday['nextTarget']
+      : (($planToday['days'][$today]['target'] ?? 1)),
     'todayCompleted' => !empty($completedSet[$today]),
   ];
 
