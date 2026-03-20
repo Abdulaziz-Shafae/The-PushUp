@@ -42,6 +42,17 @@ function ts_to_date(int $ts): string {
   return date('Y-m-d', $ts);
 }
 
+function min_date(string ...$dates): string {
+  $min = null;
+  foreach ($dates as $d) {
+    if (!is_valid_date($d)) continue;
+    if ($min === null || strcmp($d, $min) < 0) {
+      $min = $d;
+    }
+  }
+  return $min ?? date('Y-m-d');
+}
+
 function get_month_range(string $month): array {
   if (!preg_match('/^\d{4}-\d{2}$/', $month)) bad_request('Invalid month');
   $start = $month . '-01';
@@ -78,6 +89,17 @@ function get_profile_start_date(mysqli $db, string $profile_id): string {
   $d = (string)($res['d'] ?? '');
   if (!is_valid_date($d)) return date('Y-m-d');
   return $d;
+}
+
+function get_first_logged_date(mysqli $db, string $profile_id): ?string {
+  $stmt = $db->prepare("SELECT MIN(day_date) AS d FROM pushup_days WHERE profile_id=?");
+  $stmt->bind_param("s", $profile_id);
+  $stmt->execute();
+  $res = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+
+  $d = (string)($res['d'] ?? '');
+  return is_valid_date($d) ? $d : null;
 }
 
 function fetch_month_status(mysqli $db, string $profile_id, string $monthStart, string $monthEnd): array {
@@ -269,11 +291,13 @@ if ($action === 'state') {
 
   $monthEndInclusive = ts_to_date(strtotime('-1 day', date_to_ts($monthEnd)));
   $profileStart = get_profile_start_date($db, $profile_id);
+  $firstLogged = get_first_logged_date($db, $profile_id);
+  $simStart = min_date($profileStart, $monthStart, $firstLogged ?? '');
   $today = date('Y-m-d');
   $simEnd = max($today, $monthEndInclusive);
 
-  $completedMap = fetch_completed_map_between($db, $profile_id, $profileStart, $simEnd);
-  $plan = build_plan_state($completedMap, $profileStart, $simEnd);
+  $completedMap = fetch_completed_map_between($db, $profile_id, $simStart, $simEnd);
+  $plan = build_plan_state($completedMap, $simStart, $simEnd);
 
   $days = [];
   $startTs = date_to_ts($monthStart);
