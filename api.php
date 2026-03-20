@@ -292,7 +292,7 @@ if ($action === 'state') {
   $monthEndInclusive = ts_to_date(strtotime('-1 day', date_to_ts($monthEnd)));
   $profileStart = get_profile_start_date($db, $profile_id);
   $firstLogged = get_first_logged_date($db, $profile_id);
-  $simStart = min_date($profileStart, $monthStart, $firstLogged ?? '');
+  $simStart = min_date($profileStart, $firstLogged ?? '');
   $today = date('Y-m-d');
   $simEnd = max($today, $monthEndInclusive);
 
