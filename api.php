@@ -34,6 +34,22 @@ function is_valid_date(string $d): bool {
   return (bool)preg_match('/^\d{4}-\d{2}-\d{2}$/', $d);
 }
 
+function get_client_today(string $fallback): string {
+  $todayParam = (string)($_GET['today'] ?? '');
+  if (is_valid_date($todayParam)) return $todayParam;
+
+  $offsetRaw = $_GET['tz_offset_min'] ?? null;
+  if ($offsetRaw !== null && is_numeric($offsetRaw)) {
+    $offsetMin = (int)$offsetRaw;
+    if ($offsetMin >= -840 && $offsetMin <= 840) {
+      $clientTs = time() - ($offsetMin * 60);
+      return date('Y-m-d', $clientTs);
+    }
+  }
+
+  return $fallback;
+}
+
 function date_to_ts(string $d): int {
   return strtotime($d . ' 00:00:00');
 }
@@ -269,7 +285,7 @@ if ($action === 'state') {
 
   $monthEndInclusive = ts_to_date(strtotime('-1 day', date_to_ts($monthEnd)));
   $profileStart = get_profile_start_date($db, $profile_id);
-  $today = date('Y-m-d');
+  $today = get_client_today(date('Y-m-d'));
   $simEnd = max($today, $monthEndInclusive);
 
   $completedMap = fetch_completed_map_between($db, $profile_id, $profileStart, $simEnd);
