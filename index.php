@@ -295,8 +295,8 @@
     await parseApiResponse(res);
   }
 
-  async function apiState(profile_id, ym) {
-    const res = await fetch(`api.php?action=state&profile_id=${encodeURIComponent(profile_id)}&month=${encodeURIComponent(ym)}`);
+  async function apiState(profile_id, ym, today, tz_offset_min) {
+    const res = await fetch(`api.php?action=state&profile_id=${encodeURIComponent(profile_id)}&month=${encodeURIComponent(ym)}&today=${encodeURIComponent(today)}&tz_offset_min=${encodeURIComponent(tz_offset_min)}`);
     return await parseApiResponse(res);
   }
 
@@ -315,6 +315,13 @@
   }
 
   function dayNumber(dateStr) { return Number(dateStr.slice(-2)); }
+  function getLocalTodayStr() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
   function renderHeader(profileName, stats) {
     const nextLabel = `${stats.nextTarget} pushup${stats.nextTarget===1?'':'s'}`;
@@ -334,7 +341,7 @@
   function renderList(profile_id, days) {
     const wrap = document.getElementById("listView");
     wrap.innerHTML = "";
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalTodayStr();
 
     for (const d of days) {
       const div = document.createElement("div");
@@ -368,7 +375,7 @@
   function renderCalendar(profile_id, ym, days) {
     const grid = document.getElementById("calGrid");
     grid.innerHTML = "";
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalTodayStr();
 
     const [y,m] = ym.split("-").map(Number);
     const first = new Date(y, m-1, 1);
@@ -474,10 +481,12 @@
   async function refresh() {
     const profile_id = await ensureProfile();
     const ym = yyyymm(current);
+    const today = getLocalTodayStr();
+    const tzOffset = new Date().getTimezoneOffset();
 
     document.getElementById("monthTitle").textContent = monthTitle(ym);
 
-    const data = await apiState(profile_id, ym);
+    const data = await apiState(profile_id, ym, today, tzOffset);
     const profName = (profiles.find(p => p.profile_id === profile_id) || {}).name || "Profile";
     renderHeader(profName, data.stats);
     renderList(profile_id, data.days);
